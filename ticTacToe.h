@@ -9,6 +9,10 @@
 #include "stdlib.h"
 #include "stdbool.h"
 #include "errno.h"
+#include "ctype.h"
+#include "time.h"
+#include "assert.h"
+
 
 
 // Models
@@ -31,11 +35,29 @@ typedef enum {
     PLAYER_BOT
 } PlayerType;
 
+typedef enum {
+    DIFF_EASY,
+    DIFF_MEDIUM,
+    DIFF_HARD
+} Difficulty;
+
+typedef enum {
+    MODE_PVP,
+    MODE_PVBOT
+} GameMode;
+
+typedef struct {
+    int row;
+    int col;
+    int score; // for minimax
+} Move;
+
 typedef struct {
     Cell       mark;
     PlayerType type;
     int wins;
 } Player;
+
 
 typedef struct {
     Cell       cells[BOARD_SIZE][BOARD_SIZE];  
@@ -43,7 +65,12 @@ typedef struct {
     int        currentPlayer;
     int        movesMade;
     GameStatus status;
+    Difficulty difficulty;
+    GameMode mode;
+    Move lastMove;
 } Game;
+
+
 
 // Winning positions
 // Each entry is a 3x3 mask: CELL_X marks the three squares that form a line,
@@ -125,9 +152,14 @@ static const Cell boardWinningPosO[8][BOARD_SIZE][BOARD_SIZE] = {
 
 // Functions
 
-void initGame(Game *g);
+bool scan_safe_int(const char *prompt, int *output);
+bool scan_safe_str(const char *prompt, char *output, size_t size);
+void clearScreen(void);
+void println(char* input);
+
+void initGame(Game *g, GameMode m, Difficulty d);
 void printBoard(const Game *g);
-bool isValidMove(const Game *g, int row, int col); // One-indexed
+bool isValidMove(const Game *g, int row, int col); // Zero-indexed
 bool placeMark(Game *g, int row, int col);
 GameStatus checkStatus(const Game *g);
 void switchPlayer(Game *g);
@@ -139,6 +171,29 @@ static inline const char* markToString(Cell c) {
         default:     return " ";
     }
 }
+
+int countEmpty(const Game *g);
+Cell opponentMark(Cell m);
+
+void resetBoard(Game *g);
+GameMode chooseMode(void);
+Difficulty chooseDifficulty(void);
+bool playAgain(void);
+void takeHumanTurn(Game *g);
+void takeBotTurn(Game *g);
+void takeTurn(Game *g);
+Move botChooseMove(const Game *g);
+Move botRandomMove(const Game *g);
+bool findWinningMove(const Game *g, Cell mark, Move *out);
+bool hasWon(const Game *g, Cell mark);
+Move botMediumMove(const Game *g);
+int minimax(Game *g, Cell turn, Cell botMark);
+Move botHardMove(const Game *g);
+
+
+
+
+
 
 void printResult(Game *g);
 void ticTacToe(void);

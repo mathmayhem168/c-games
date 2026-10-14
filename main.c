@@ -8,43 +8,7 @@
 
 // TODO: Fix the CLI stuff
 
-bool scan_safe_int(const char *prompt, int *output) {
-    char buffer[64]; 
-    char *endptr;
-
-    printf("%s", prompt);
-    fflush(stdout);
-
-    if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
-        return false;
-    }
-
-    if (strchr(buffer, '\n') == NULL && !feof(stdin)) {
-        int c;
-        while ((c = getchar()) != '\n' && c != EOF);
-        return false; 
-    }
-
-    buffer[strcspn(buffer, "\n")] = '\0';
-
-    errno = 0;
-    long parsed_val = strtol(buffer, &endptr, 10);
-
-    if (endptr == buffer || *endptr != '\0' || errno == ERANGE) {
-        return false; 
-    }
-
-    *output = (int)parsed_val;
-    return true;
-}
-
-void clearScreen() {
-    system("clear");
-}
-
-void println(char* input) {
-    printf("%s\n", input);
-}
+// scan_safe_int, scan_safe_str, clearScreen and println come from ticTacToe.c
 
 void endOfGame() {
     println("Press Enter to return to the menu..");

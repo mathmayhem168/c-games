@@ -15,6 +15,11 @@ void endOfGame() {
     getchar();
 }
 
+void comingSoon() {
+    println("That game isn't available yet.");
+    endOfGame();
+}
+
 int main() {
     bool running = true;
     clearScreen();
@@ -43,25 +48,17 @@ int main() {
                 println("Invalid input. Please enter a number from 1 to 5.");
                 continue;
             }
-            if (firstGameTopic == 1) {
-
-            } else if (firstGameTopic == 2) {
-
-            } else if (firstGameTopic == 3) {
+            if (firstGameTopic == 3) {
                 ticTacToe();
                 endOfGame();
-            } else if (firstGameTopic == 4) {
-
-            } else if (firstGameTopic == 5) {
-
+            } else if (firstGameTopic >= 1 && firstGameTopic <= 5) {
+                comingSoon();
             } else {
                 println("Invalid input. Please enter a number from 1 to 5.");
-                continue; 
+                continue;
             }
-        } else if (gameTopic == 2) {
-
-        } else if (gameTopic == 3) {
-
+        } else if (gameTopic == 2 || gameTopic == 3) {
+            comingSoon();
         } else {
             println("Invalid input. Please enter a number from 1 to 3.");
             continue;

@@ -9,6 +9,10 @@ bool scan_safe_int(const char *prompt, int *output) {
     fflush(stdout);
 
     if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
+        if (feof(stdin)) {   // input is closed (Ctrl-D): quit instead of looping forever
+            printf("\n");
+            exit(0);
+        }
         return false;
     }
 
@@ -36,6 +40,10 @@ bool scan_safe_str(const char *prompt, char *output, size_t size) {
     fflush(stdout);
 
     if (fgets(output, size, stdin) == NULL) {
+        if (feof(stdin)) {
+            printf("\n");
+            exit(0);
+        }
         return false;
     }
 
@@ -112,6 +120,26 @@ bool placeMark(Game *g, int row, int col) {
     return true;
 }
 
+// True if `mark` still has a winning line with none of the opponent's marks in it.
+static bool canStillWin(const Game *g, Cell mark) {
+    Cell opponent = opponentMark(mark);
+    for (int i = 0; i < 8; ++i) {
+        bool blocked = false;
+        for (int r = 0; r < BOARD_SIZE; ++r) {
+            for (int c = 0; c < BOARD_SIZE; ++c) {
+                // boardWinningPosX is only used here for the shape of line i
+                if (boardWinningPosX[i][r][c] == CELL_X && g->cells[r][c] == opponent) {
+                    blocked = true;
+                }
+            }
+        }
+        if (!blocked) {
+            return true;
+        }
+    }
+    return false;
+}
+
 GameStatus checkStatus(const Game *g) {
     // wins are checked before the draw, so a win on the last square counts
     if (hasWon(g, CELL_X)) {
@@ -120,7 +148,8 @@ GameStatus checkStatus(const Game *g) {
     if (hasWon(g, CELL_O)) {
         return GAME_O_WINS;
     }
-    if (countEmpty(g) == 0) {
+    // draw: board full, or nobody can win any more (no need to play it out)
+    if (countEmpty(g) == 0 || (!canStillWin(g, CELL_X) && !canStillWin(g, CELL_O))) {
         return GAME_DRAW;
     }
     return GAME_IN_PROGRESS;
@@ -252,17 +281,33 @@ bool playAgain(void) {
     }
 }
 
+static void printTurnHeader(const Game *g) {
+    const Player *p = &g->players[g->currentPlayer];
+    if (p->type == PLAYER_BOT) {
+        printf("Bot (%c) is thinking..\n", p->mark);
+    } else {
+        printf("Player %c's turn!\n", p->mark);
+    }
+}
+
 void takeHumanTurn(Game *g) {
     int row;
     int col;
+    const char *error = NULL;
 
     while (true) {
+        if (error != NULL) {
+            // redraw so errors don't pile up under the board
+            printBoard(g);
+            printTurnHeader(g);
+            printf("%s\n", error);
+        }
         if (!readMove(&row, &col)) {
-            println("Invalid input. Please enter a number from 1 to 9.");
+            error = "Invalid input. Please enter a number from 1 to 9.";
             continue;
         }
         if (!placeMark(g, row, col)) {
-            println("That square is taken. Pick another.");
+            error = "That square is taken. Pick another.";
             continue;
         }
         return;
@@ -274,11 +319,15 @@ void takeBotTurn(Game *g) {
     bool placed = placeMark(g, move.row, move.col);
     assert(placed);   // kept outside assert() so the move is made even with NDEBUG
     (void)placed;
+    printBoard(g);   // show the bot's move together with the message
     printf("Bot plays %d\n", move.row * BOARD_SIZE + move.col + 1);
     struct timespec ts;
     ts.tv_sec = 1;
     ts.tv_nsec = 500000000;
     nanosleep(&ts, NULL); // wait for 1.5 seconds for player to recalibrate
+    if (isatty(STDIN_FILENO)) {
+        tcflush(STDIN_FILENO, TCIFLUSH);   // drop keys pressed during the pause
+    }
 }
 
 void takeTurn(Game *g) {
@@ -323,7 +372,7 @@ bool findWinningMove(const Game *g, Cell mark, Move *out) {
     for (int i = 0; i < 8; ++i) {
         int markCount = 0;
         int emptyCount = 0;
-        Move emptySquare = {0, 0};
+        Move emptySquare = {0, 0, 0};
 
         for (int r = 0; r < BOARD_SIZE; ++r) {
             for (int c = 0; c < BOARD_SIZE; ++c) {
@@ -456,9 +505,42 @@ Move botHardMove(const Game *g) {
 }
 
 void ticTacToe() {
+    int roundsPlayed = 0;
     Game g;
-    Difficulty d = DIFF_MEDIUM;
-    GameMode m = MODE_PVBOT;
-    initGame(&g, m, d);
-    printBoard(&g);
+    clearScreen();
+    println("Welcome to Tic-Tac-Toe!");
+    GameMode mode = chooseMode(); 
+    Difficulty diff = (mode == MODE_PVBOT) ? chooseDifficulty() : DIFF_EASY;   // difficulty only matters with a bot
+    srand(time(NULL));
+    initGame(&g, mode, diff);
+
+    bool running = true;
+    while (running) {
+        resetBoard(&g);
+        g.currentPlayer = roundsPlayed % 2;   // alternate who starts each round
+
+        while (g.status == GAME_IN_PROGRESS) {
+            printBoard(&g);
+            printTurnHeader(&g);
+
+            takeTurn(&g);
+            g.status = checkStatus(&g);
+            
+            if (g.status == GAME_IN_PROGRESS) {
+                switchPlayer(&g);
+            }
+        }
+
+        printResult(&g);
+
+        printf("==== Scoreboard ======\n");
+        printf("X: %d\n", g.players[0].wins);
+        printf("O: %d\n", g.players[1].wins);
+
+        roundsPlayed++;
+
+        if (!playAgain()) {
+            running = false;
+        }
+    }
 }

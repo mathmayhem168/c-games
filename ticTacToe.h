@@ -12,6 +12,7 @@
 #include "ctype.h"
 #include "time.h"
 #include "assert.h"
+#include "termios.h"
 
 
 
